@@ -1,0 +1,16 @@
+server:
+  port: 8885
+spring:
+  application:
+    name: user-service
+
+eureka:
+  instance:
+    status-page-url: http://localhost:${server.port}/swagger-ui.html
+  client:
+    service-url:
+      defaultZone: http://register-master:8880/eureka/
+
+feign:
+  hystrix:
+    enabled: true

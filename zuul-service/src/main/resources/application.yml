@@ -1,0 +1,34 @@
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://register-master:8880/eureka/
+
+server:
+  port: 8884
+
+spring:
+  application:
+    name: service-zuul
+
+
+
+zuul:
+  routes:
+    api-a:
+      path: /api-a/**
+      serviceId: user-service
+  host:
+    connect-timeout-millis: 10000
+
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 6000
+
+#启动feign熔断器功能
+feign:
+  hystrix:
+    enabled: true

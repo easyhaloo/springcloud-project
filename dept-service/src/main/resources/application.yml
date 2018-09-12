@@ -1,0 +1,14 @@
+server:
+  port: 8886
+spring:
+  application:
+    name: dept-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://register-master:8880/eureka/
+
+feign:
+  hystrix:
+    enabled: true

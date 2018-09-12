@@ -1,0 +1,23 @@
+
+#服务端口
+server:
+  port: 8880
+
+eureka:
+  instance:
+    hostname: register-master
+  client:
+    #通过设置fetch-registry与register-with-eureka 表明自己是一个eureka服务
+    fetch-registry: false
+    register-with-eureka: false
+    #注册register-salve1，register-salve2做注册中心集群
+    service-url:
+      defaultZone: http://register-salve1:8881/eureka/,http://register-salve2:8882/eureka/
+
+spring:
+  application:
+    name: register-center
+
+management:
+  security:
+    enabled: false
