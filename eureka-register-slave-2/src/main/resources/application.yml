@@ -8,7 +8,7 @@ eureka:
     hostname: register-salve2
   client:
     #通过设置fetch-registry与register-with-eureka 表明自己是一个eureka服务
-#    fetch-registry: false
+    fetch-registry: false
 #    register-with-eureka: false
     #注册register-salve1，register-salve2做注册中心集群
     service-url:

@@ -1,4 +1,6 @@
 eureka:
+  instance:
+    status-page-url: http://localhost:${server.port}/swagger-ui.html
   client:
     serviceUrl:
       defaultZone: http://register-master:8880/eureka/
@@ -17,8 +19,12 @@ zuul:
     api-a:
       path: /api-a/**
       serviceId: user-service
+    api-b:
+      path: /api-b/**
+      serviceId: dept-service
   host:
-    connect-timeout-millis: 10000
+  #设置请求分发的超时时间
+    connect-timeout-millis: 60000
 
 hystrix:
   command:

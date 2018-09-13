@@ -5,6 +5,9 @@ spring:
     name: dept-service
 
 eureka:
+  #方便注册中心直接路由到Swagger界面，查看rest API
+  instance:
+    status-page-url: http://localhost:${server.port}/swagger-ui.html
   client:
     service-url:
       defaultZone: http://register-master:8880/eureka/
