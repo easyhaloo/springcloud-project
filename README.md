@@ -499,12 +499,12 @@ application.yml
 
 ```yaml
 
-# To disable Hystrix in Feign
+# 禁用hystrix
 feign:
   hystrix:
     enabled: false
 
-# To set thread isolation to SEMAPHORE
+# 设置隔离方式为SEMAPHORE
 hystrix:
   command:
     default:
