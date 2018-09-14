@@ -817,3 +817,303 @@ application.yml
       url: http://example.com/users_service
 ```
 
+这些简单的`url-routes`并不会作为`HystrixCommand `执行，也不会对多个`URLs`使用`Ribbon`进行负载均衡(loadbalance)。
+为了达成这个，您可以使用静态服务器列表指定serviceId。
+
+application.yml
+```yaml
+zuul:
+  routes:
+    echo:
+      path: /myusers/**
+      serviceId: myusers-service
+      stripPrefix: true #不使用前缀进行HTTP转发
+
+hystrix:
+  command:
+    myusers-service:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 60000 #60s
+
+myusers-service:
+  ribbon:
+    NIWSServerListClassName: com.netflix.loadbalancer.ConfigurationBasedServerList#服务器列表的处理类，用来维护服务器列表的，Ribbon已经实现了动态服务器列表
+    listOfServers: http://example1.com,http://example2.com #静态服务器列表
+    ConnectTimeout: 1000  #建立连接的超时时间  Apache HttpClient
+    ReadTimeout: 3000 #读取超时时间 Apache HttpClient
+    
+    MaxTotalHttpConnections: 500 #最大的HTTP连接数
+    MaxConnectionsPerHost: 100  #须臾每台主机的最大连接数
+```
+
+
+另一种方法是指定服务路由并为serviceId配置Ribbon客户端（这需要禁用Ribbon禁用Eureka支持）。
+
+application.yml
+```yaml
+zuul:
+  routes:
+    users:
+      path: /myusers/**
+      serviceId: users
+
+ribbon:
+  eureka:
+    enabled: false #j禁用ribbon的eureka支持
+
+users:
+  ribbon:
+    listOfServers: example.com,google.com
+```
+
+您可以使用regexmapper在serviceId和路由之间提供约定。它使用名为group的正则表达式从serviceId中提取变量并将它们注入到路由模式中。
+
+##### ApplicationConfiguration.java
+
+```java
+@Bean
+public PatternServiceRouteMapper serviceRouteMapper() {
+    return new PatternServiceRouteMapper(
+        "(?<name>^.+)-(?<version>v.+$)",
+        "${version}/${name}");
+}
+```
+
+这意味着serviceId"myusers-v1"将被映射到路由"/v1/myusers/**",可以接受任意的正则表达式，但是所有的命名组都必须存在于`
+servicePattern和routePattern中`。如果`servicePattern`与`serviceId`不匹配，则使用默认行为。
+
+在上面的示例中，serviceId“myusers”将被映射到路由“/ myusers / **”（检测不到版本）此功能默认禁用，仅适用于已发现的服务。
+
+要为所有映射添加前缀，请将`zuul.prefix`设置为一个值，例如/api。默认情况下，请求被转发之前，代理前缀被删除（使用`zuul.stripPrefix`=false关闭此行为）。
+
+您还可以关闭从各路线剥离服务特定的前缀，例如:
+
+application.yml
+```yaml
+
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+      stripPrefix: false
+```
+
+> 注意：`zuul.stripPrefix`仅适用于`zuul.prefix`中设置的前缀。它对给定路由`path`中定义的前缀有影响。
+
+
+在上面的示例中，所有请求"/myusers/101"的请求都会被转发到用户服务的"/myusers/101"路径。
+
+`zuul.routers`条目实际是绑定到一个类型`ZuulProperties`的对象上。如果你查看该属性上面还有“重试”的标签，通过设置该标签为true
+ribbon客户端将自动进行失败重试机制。（通过对Ribbon客户端进行配置可以修改重试操作的参数）。
+
+默认情况下，将`X-Forwarded-Host`标头添加到转发的请求中.通过设置`zuul.addProxyHeaders = false`来关闭此功能。
+
+默认情况下，prefix前缀路径将会被剥离，并且对后端的请求会提交一个`X-Forwarded-Prefix`属性。
+
+
+如果你设置的默认路由为("/"),则添加`@EnableZuulProxy`的应用程序可以作为独立服务器。例如：`zuul.route.home: /`将会将所有的请求路由到
+"home"服务。
+
+如果你想进行一些细腻度的控制，你可以使用`ignoredPatterns`进行特殊匹配，所有被成功匹配的请求将不会被zuul接受。
+
+application.yml
+
+```yaml
+ zuul:
+  ignoredPatterns: /**/admin/**
+  routes:
+    users: /myusers/**
+```
+
+这意味着"/myusers/101"将会被请求转发到“users”服务，但是路径中包含“/admin/”的请求不会被转发。
+
+> 注意：当你需要你的路由路径顺序执行，你应该使用yaml文件，因为属性文件会导致乱序。
+
+application.yml
+```yaml
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+    legacy:
+      path: /**
+```
+
+如果上述配置你使用的是属性文件.properties,则匹配到`legacy`的服务可能会在`users`服务前面展开，所以导致`users`服务将不可达。
+
+
+#### 使用Zuul Http客户端
+
+Zuul使用的HTTP客户端现在默认由`Apache HTTP Client`支持，代替废弃Ribbon的`restClient`的支持。
+
+如果想使用`RestClietn`或者`okhttp3.OkHttpClient`可设置`ribbon.restclient.enabled=true`或是`ribbon.okhttp.enabled=true`进行启用。
+
+如果要自定义`Apache HTTP Client`或`OK HTTP Client`，请提供`ClosableHttpClient`或`OkHttpClient`类型的bean。
+
+#### Cookie和敏感Headers
+
+在同一个系统共享headrs是可以的，但您可能不希望敏感headers泄漏到外部的下游服务器。你可以在route配置忽略headers的列表。
+
+`Cookies`起着特殊的作用，因为它们在浏览器中具有明确的语义，并且它们总是被视为敏感的。如果你的代理consumer是一个浏览器，
+则下游服务的cookie也会导致用户出现问题，因为它们都被混淆（所有下游服务看起来都是来自同一个地方）。
+
+
+如果你对你的设计非常谨慎，例如，如果只有一个下游服务设置了Cookie,那么你可以让它们从后台一直流到调用者。
+
+如果你的代理设置了cookies，并且你的所有后端服务都属于同一套系统，那么简单的共享它们将变得很自然（例如，使用Spring Session将它们链接到某个共享状态）。
+
+除此之外，由下游服务设置的任何cookie对调用者来说可能都不是很有用。因此建议您将（至少）“Set-Cookie”和“Cookie”设置为不属于您的域名。即使是属于您域名的路线，请尝试仔细考虑允许Cookie在代理之间流动的含义
+
+可以将敏感报头配置为每个路由的逗号分隔列表，例如：
+application.yml. 
+```yaml
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+      sensitiveHeaders: Cookie,Set-Cookie,Authorization
+      url: https://downstream
+```
+
+> 注意：这是sensitiveHeaders的默认值，因此你不需要设置它。注意这是Spring Cloud Netflix 1.1中的新功能（1.0中，用户无法控制headers，所有Cookie都在两个方向上流动）。
+
+`sensitiveHeaders`是一个黑名单，默认值不为空，如果你想Zuul发送所有headers(除了被忽视的"ignored")，你必须显示的
+将其设置为空。如果你想要将Cookie或者authorization header传到后端，这是必要的。
+
+application.yml
+```yaml
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+      sensitiveHeaders:
+      url: https://downstream
+```
+
+也可以通过设置`zuul.sensitiveHeaders`来影响全部的路由。如果在路由上设置了`sensitiveHeaders`，则会覆盖全局`sensitiveHeaders`设置。
+
+#### Ignored Headers
+
+每个路由除了`sensitiveHeaders`外，你还可以设置`uul.ignoredHeaders`来代表你在与下游服务进行交互需要丢弃的（请求与响应）。
+默认情况下，如果没有`Spring Security`依赖在`classpath`，它们都将为空。否则，它们它们将被初始化，并有`Spring Security`指定设置一个`知名(well-known)`的“security” headers（例如：涉及缓存）。
+在这种情况下，假设是下游服务可能也添加这些头，我们希望代理的值。
+为了不丢弃这些众所周知的安全标头，只要Spring Security在classpath上，你可以将`zuul.ignoreSecurityHeaders`设置为`false`。如果您禁用Spring Security中的HTTP安全性响应头，并希望由下游服务提供的值，这可能很有用。
+
+
+#### Endpoints管理
+
+如果你将`@EnableZuulProxy`与`Spring Boot Actuator`一起使用，你将启用（默认）两个额外的端点监控：
+
+ - Routes
+ - Filters
+ 
+##### Routes Endpoint
+
+通过GET请求到路由端点（“/routes”），它将返回一个路由映射集合：
+
+**_get  /routes_**
+
+```json
+{
+  /stores/**: "http://localhost:8081"
+}
+```
+
+可以通过将`?format = details`查询字符串添加到`/routes`来请求其他路由详细信息。输入内容如下：
+
+_**GET /routes?format=details**_ 
+
+```json
+{
+  "/stores/**": {
+    "id": "stores",
+    "fullPath": "/stores/**",
+    "location": "http://localhost:8081",
+    "path": "/**",
+    "prefix": "/stores",
+    "retryable": false,
+    "customSensitiveHeaders": false,
+    "prefixStripped": true
+  }
+}
+```
+
+通过POST请求你可以强制刷新现有的路由（例如：万一服务目录有变化）。当然你也可以禁用此端点
+`endpoints.routes.enabled =false`。
+
+> 路由应自动响应服务目录中的更改，但POST到/routes是一种迫使改变立即发生的方法。
+
+##### Filters Endpoint
+与routes类似。可以参照routes进行操作。
+
+
+#### 绞杀模式与本地转发
+迁移现有应用程序或API时的一种常见模式是“扼杀”旧端点，通过不同的实现慢慢替换它们。
+Zuul代理是一个有用的工具，因为您可以使用它来处理来自旧端点的客户端的所有流量，但将一些请求重定向到新的端点。
+
+
+一个配置例子如下：
+
+application.yml
+
+```yaml
+zuul:
+  routes:
+    first:
+      path: /first/**
+      url: http://first.example.com
+    second:
+      path: /second/**
+      url: forward:/second
+    third:
+      path: /third/**
+      url: forward:/3rd
+    legacy:
+      path: /**
+      url: http://legacy.example.com
+```
+在上面这个例子中，扼杀了“legacy”应用中所有其他模式不匹配的请求的映射。/first/**中的路径已被提取到具有外部URL的新服务中。并且/second/**中的路径被转发，以便它们可以在本地处理，例如具有正常的Spring @RequestMapping。/third/**中的路径也被转发，但具有不同的前缀（即/third/foo转发到/3rd/foo）
+
+> 注意，被忽略的模式不代表被完全忽略，它们仅仅不被代理处理，因此，它们还是可以在本地被有效的处理。
+
+
+#### Zuul上传文件
+
+使用Zuul进行文件上传是可以的，但是仅仅支持小文件的上传。对于大文件，在“/ zuul / *”中有一个绕过Spring `DispatcherServlet`（以避免多部分处理）的备用路径。
+
+也就是说，你可以设置`zuul.routes.customers=/customers/**`,则可以将大文件发送到“/zuul/customers/*”
+这个`servlet`的路径通过`zuul.servletPath`表明。
+
+对于非常大的文件，如果你的代理路由需要你通过`Ribbon`做负载均衡，那么你必须提高你的timeout。
+
+application.yml
+
+```yaml
+hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds: 60000
+ribbon:
+  ConnectTimeout: 3000
+  ReadTimeout: 60000
+```
+
+> 注意，流式传输使用大文件，你需要在请求中使用分块编码（某些浏览器默认不会执行）
+
+
+#### 查询字符串编码
+
+处理传入请求时，查询参数被解码，因此可以通过Zuul过滤器对参数进行更改。然后在路由过滤器中构建后端请求时重新编码它们。
+如果使用Javascript的encodeURIComponent（）方法编码，结果可能与原始输入不同。大多数浏览器是不会导致问题，但是有些web
+服务器可以用过复杂的查询编码来挑剔。
+
+强制查询字符串的原始编码，可以将特殊标志传递给ZuulProperties，以便查询字符串与HttpServletRequest::getQueryString方法相同
+
+application.yml
+```yaml
+ zuul:
+  forceOriginalQueryStringEncoding: true
+```
+
+> 注意：此特殊标识仅适用于`SimpleHostRoutingFilter`,由于查询参数是直接通过原始`HttpServletRequest`获取的，所以你可以使用`RequestContext.getCurrentContext().setRequestQueryParams(someOverriddenParameters)`轻松覆盖查询参数。
+
+
