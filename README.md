@@ -513,4 +513,307 @@ hystrix:
           strategy: SEMAPHORE
 ```
 
+在某些情况下，你可能需要定制你的客户端，而不是像上面那样通过注册的方式来调用。在这种情况下，你可以通过使用[Feign Builder API](https://github.com/OpenFeign/feign/#basics)来构建自定义的Fegin。
+
+下面给出一个例子，使用同一个接口，创建两个`Feign Clients`,但是为每个`Feign`配置独立的请求拦截。
+
+```java
+@Import(FeignClientsConfiguration.class)
+class FooController {
+
+	private FooClient fooClient;
+
+	private FooClient adminClient;
+
+    	@Autowired
+	public FooController(
+			Decoder decoder, Encoder encoder, Client client) {
+		this.fooClient = Feign.builder().client(client)
+				.encoder(encoder)
+				.decoder(decoder)
+				.requestInterceptor(new BasicAuthRequestInterceptor("user", "user"))
+				.target(FooClient.class, "http://PROD-SVC");
+		this.adminClient = Feign.builder().client(client)
+				.encoder(encoder)
+				.decoder(decoder)
+				.requestInterceptor(new BasicAuthRequestInterceptor("admin", "admin"))
+				.target(FooClient.class, "http://PROD-SVC");
+    }
+}
+```
+
+> 在上面的例子中，`FeignClientsConfiguration`是一个`Spring Cloud Netflix`提供的默认配置
+
+> "PROD-SVC"是调用的远程服务名称，也就是`spring.application.name`。
+
+#### Feign Hystrix 支持
+
+如果你引入了`Hystrix`依赖，而且开启`feign.hystrix.enabled=true`，`Feign`将通过`circuit breaker`(断路器)包装所有的方法。还可以返回
+一个可用的`com.netflix.hystrix.HystrixCommand`对象。它允许你使用`reactive patterns`(流式编程/响应式编程)的模式进行API调用。
+
+> **_注意：_** 在 Spring Cloud Dalston release之前的版本是默认包装，在 Spring Cloud Dalston release中改变为选择添加的方式。
+
+> 调用`.toObservable()` 或 `.observe()`。
+>   - [observe()](http://netflix.github.io/Hystrix/javadoc/com/netflix/hystrix/HystrixCommand.html#observe()/)返回一个’hot’`Observable`它会立即订阅底层的`Observable`，即使`Observable`通过ReplaySubject进行过滤，在您有机会订阅之前，您不会丢失它所发出的任何项目。
+>   - [toObservable()](http://netflix.github.io/Hystrix/javadoc/com/netflix/hystrix/HystrixCommand.html#toObservable%28%29/)返回一个’cold’`Observable`,不会立即订阅底层的`Observable`，直到你订阅`Observable`才会开始发布结果 。
  
+> 调用[.queue()](http://netflix.github.io/Hystrix/javadoc/com/netflix/hystrix/HystrixCommand.html#queue%28%29/)，进行异步编程。
+
+使用异步编程模式
+
+```code
+Future<String> fs = new CommandHelloWorld("World").queue();
+String s = fs.get();
+```
+
+使用订阅模式
+```code
+Observable<String> ho = new CommandHelloWorld("World").observe();
+// or Observable<String> co = new CommandHelloWorld("World").toObservable()
+
+ho.subscribe(new Action1<String>() {
+
+    @Override
+    public void call(String s) {
+         // value emitted here
+    }
+
+});
+```
+简化代码，JAVA lambdas/closures 语法
+```code
+fWorld.subscribe((v) -> {
+    System.out.println("onNext: " + v);
+})
+
+// - 可以包含错误处理
+
+fWorld.subscribe((v) -> {
+    System.out.println("onNext: " + v);
+}, (exception) -> {
+    exception.printStackTrace();
+})
+```
+
+
+
+#### Feign Hystrix Fallbacks
+Hystrix支持`fallback`(备选方案的意思):在电路打开，或者执行出现错误，Hystrix会进行降级处理，执行默认的`fallback`选项代码。减少错误的传播。
+只需要在`@FeignClient(name = "hello", fallback = HystrixClientFallback.class)`实现`HystrixClientFallback`该类即可。
+
+如果你想访问导致`fallback`触发的原因，你可以使用`@FeignClient`的`fallbackFactory`属性.
+
+```java
+@FeignClient(name = "hello", fallbackFactory = HystrixClientFallbackFactory.class)
+protected interface HystrixClient {
+	@RequestMapping(method = RequestMethod.GET, value = "/hello")
+	Hello iFailSometimes();
+}
+
+@Component
+static class HystrixClientFallbackFactory implements FallbackFactory<HystrixClient> {
+	@Override
+	public HystrixClient create(Throwable cause) {
+		return new HystrixClient() {
+			@Override
+			public Hello iFailSometimes() {
+				return new Hello("fallback; reason was: " + cause.getMessage());
+			}
+		};
+	}
+}
+```
+
+> 注意：在Feign中执行回退以及Hystrix回退的工作方式存在局限性，当前返回`com.netflix.hystrix.HystrixCommand`和`rx.Observable`的方法目前不支持回退。
+
+
+#### Feign and @Primary
+当我们使用Feign进行Hystrix fallback时，可能会存在`ApplicationContext`中有多个相同类型的bean。这将导致@Autowried无法正常工作
+没有一个合适的bean(`isn’t exactly one bean 错误`)，或者没有一个`primary bean`。
+
+为了解决这个问题，Spring Cloud Netflix将所有Feign实例标记为`@Primary`，因此Spring Framework将知道要注入哪个bean。
+在某些情况下，你可能并不需要这样做，通过设置可以关闭此行为。
+
+```java
+@FeignClient(name = "hello", primary = false)
+public interface HelloClient {
+	// methods here
+}
+```
+
+#### Feign继承支持
+
+Feign通过单继承接口支持样板apis。通过继承接口，将常用的基本操作分组，方便操作。
+
+
+##### UserService.java.
+```java
+public interface UserService {
+
+    @RequestMapping(method = RequestMethod.GET, value ="/users/{id}")
+    User getUser(@PathVariable("id") long id);
+}
+```
+##### UserResource.java.
+```java
+@RestController
+public class UserResource implements UserService {
+
+}
+```
+
+##### UserClient.java. 
+```java
+
+
+@FeignClient("users")
+public interface UserClient extends UserService {
+
+}
+```
+> 通常不建议在服务器和客户端之间共享接口。它引入了紧耦合，并且实际上并不适用于当前形式的Spring MVC（方法参数映射不被继承）。
+
+#### Feign请求/响应压缩
+
+开启请求相应进行`GZIP`压缩：
+```yaml
+feign.compression.request.enabled=true
+feign.compression.response.enabled=true
+```
+压缩还支持类似web请求头的设置：
+```yaml
+feign.compression.request.enabled=true
+feign.compression.request.mime-types=text/xml,application/xml,application/json
+feign.compression.request.min-request-size=2048
+```
+通过这些属性可以让你对压缩媒体类型和最小请求阈值长度有选择性。
+
+#### Feign 日志支持
+
+可以为每个Feign客户端创建一个日志记录器。默认情况下，记录器的名称是用于创建Feign客户端接口的完整类名。Feign日志记录仅响应DEBUG级别。
+
+application.yml
+```yaml
+logging.level.project.user.UserClient: DEBUG
+```
+
+你可以为每个客户端配置`Logger.Level`来告诉Fegin记录多少。
+    
+   - `NONE`,无记录(默认设置)。
+   - `BASIC`,只记录请求方法和URL以及响应状态码和执行时间。
+   - `HEADERS`,记录基本信息以及请求响应头（request headers/response headers）。
+   - `FULL`,记录request和response的headers,body,和一些metadata元数据。
+   
+示例设置日志追踪等级，
+```java
+@Configuration
+public class FooConfiguration {
+    @Bean
+    Logger.Level feignLoggerLevel() {
+        return Logger.Level.FULL;
+    }
+}
+```
+
+
+- - -
+
+
+## 路由与过滤：Zuul
+
+路由是微服务架构的一部分。`/`可能映射到你的web应用程序，`/api/users`映射到你的用户服务，`/api/shop`映射到你的购物服务。
+[Zuul](https://github.com/Netflix/zuul)是Netflix的基于JVM的路由器和服务器端负载均衡器。
+
+Netflix 使用 Zuul做如下功能：
+  
+  - 认证
+  - 洞察
+  - 压力测试
+  - (Candary Testing)金丝雀测试 
+  - 动态路由
+  - 服务迁移
+  - 负载脱落
+  - 安全
+  - 静态响应处理
+  - 主动 / 主动流量管理
+  
+Zuul的规则引擎允许任何基于JVM平台的语言编写规则和过滤器，如：内置的JAVA和Groovy。
+
+> 注意： 配置属性`zuul.max.host.connections`现在已经被两个新的属性替换，`zuul.host.maxTotalConnections` 和 `zuul.host.maxPerRouteConnections`
+> 它们默认为200和20。
+
+> 所有路由的默认Hystrix隔离模式`(ExecutionIsolationStrategy)`是SEMAPHORE,可以更改此设置`zuul.ribbonIsolationStrategy`将隔离模式切换为`Thread`。
+
+如果想要使用Zuul，首先要添加依赖：
+```xml
+<!--网关-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zuul</artifactId>
+        </dependency>
+```
+在应用程序中注入依赖：
+```java
+/**
+ * @EnableEurekaClient 连接注册中心
+ * @EnableZuulProxy 开启网关路由功能
+ */
+@EnableEurekaClient
+@EnableZuulProxy
+@SpringBootApplication
+public class ZuulServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ZuulServiceApplication.class, args);
+    }
+}
+
+```
+
+#### 嵌入式的Zuul反向代理
+Spring Cloud提供一个嵌入式的Zuul代理来简化开发，在大多数情况下，我们都需要通过使用UI代理来调用一个或多个的后端服务，然后通过Zuul我们可以减少对于UI的依赖。
+此功能对于使用用户界面代理其所需要的后端服务非常有用。避免需要为所有后端独立管理CORS（跨域问题）和身份验证问题。
+
+> 注意：Zuul启动后不包含服务发现的功能，因此对基于服务ID来进行路由的形式，你需要提供一个客户端。例如`@EnableEurekaClient`。
+
+通过设置`zuul.ignored-services`来匹配需要忽略的服务。
+
+application.yml
+
+```yaml
+ zuul:
+  ignoredServices: '*'
+  routes:
+    users: /myusers/**
+```
+这种情况下，除了“users”服务被路由转发外，其他的服务都会忽略。
+
+当调用"/myusers"请求时，会自动转发到"users"服务。（例如："/myusers/101" 会转发成 "/101"）。
+
+
+如果想对路由进行更细粒度的控制，可以为路由指定`path`以及独立的服务ID(`service id`)
+
+
+application.yml
+```yaml
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+      serviceId: users_service
+```
+
+这意味着对“/myusers”的http调用将转发到“users_service”服务.
+
+路由必须有一个`path`，`path`支持ant-style模式匹配，"/myusers/\*" 仅仅匹配一个等级,"/myusers/**" 匹配多个级别.
+
+后端的服务位置可以被指定为“serviceId”（用于来自发现的服务）或“url”（用于物理位置），例:
+application.yml
+```yaml
+ zuul:
+  routes:
+    users:
+      path: /myusers/**
+      url: http://example.com/users_service
+```
+
