@@ -1117,3 +1117,4 @@ application.yml
 > 注意：此特殊标识仅适用于`SimpleHostRoutingFilter`,由于查询参数是直接通过原始`HttpServletRequest`获取的，所以你可以使用`RequestContext.getCurrentContext().setRequestQueryParams(someOverriddenParameters)`轻松覆盖查询参数。
 
 
+#### 普通嵌入式Zuul
