@@ -10,9 +10,10 @@ eureka-register-salve2: 对应端口： 8882
 
 
 ## zuul网关模块
+
+
+config-server: 对应端口：8888
 zuul-service: 对应端口：8884
-
-
 user-service:对应端口 8885
 dept-service:对应端口 8886
 

@@ -1,0 +1,35 @@
+spring:
+  cloud:
+    config:
+      #开启配置发现
+      discovery:
+        enabled: true
+        #读取的服务名
+        serviceId: config-server
+      profile: dev
+      label: master
+      name: user-service
+  application:
+    name: user-service
+#management:
+#  security:
+#    #是否开启actuator安全认证
+#    enabled: false
+eureka:
+  instance:
+    status-page-url: http://localhost:${server.port}/swagger-ui.html
+  client:
+    service-url:
+      defaultZone: http://register-master:8880/eureka/
+
+feign:
+  hystrix:
+    enabled: true
+
+
+server:
+  port: 8885
+
+
+
+

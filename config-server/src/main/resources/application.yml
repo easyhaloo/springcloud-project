@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/easyhaloo/config
+          search-paths: spring
+      label: master
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://register-master:8880/eureka/
+
+server:
+  port: 8888
+management:
+  security:
+    #是否开启actuator安全认证
+    enabled: false
