@@ -1,9 +1,11 @@
 package com.example.userservice.controller;
 
 import com.example.userservice.entity.User;
+import com.example.userservice.mapper.UserMapper;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -15,17 +17,19 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequestMapping("/user")
 public class UserController {
 
-
-    /**
-     * 模拟用户列表
-     */
-    static Map<String, User> users = new ConcurrentHashMap<>();
+    @Autowired
+    private UserMapper userMapper;
+//    /**
+//     * 模拟用户列表
+//     */
+//    static Map<String, User> users = new ConcurrentHashMap<>();
 
     @ApiOperation(value = "获取用户列表", notes = "")
     @GetMapping("/getUsers")
     List<User> getUsers() {
-        List<User> list = new ArrayList<>(users.values());
-        return list;
+
+//        List<User> list = new ArrayList<>(users.values());
+        return userMapper.findAll();
     }
 
 
@@ -33,7 +37,8 @@ public class UserController {
     @ApiImplicitParam(name = "user", value = "用户实体的信息User", required = true)
     @PostMapping("/save")
     public String save(@RequestBody User user) {
-        users.put(user.getId(), user);
+//        users.put(user.getId(), user);
+        userMapper.save(user);
         return "success";
     }
 
@@ -41,7 +46,7 @@ public class UserController {
     @ApiImplicitParam(name = "id", value = "用户ID", required = true, dataType = "String",paramType = "path")
     @GetMapping("getUserById/{id}")
     public User getUserById(@PathVariable("id") String id) {
-        return users.get(id);
+        return userMapper.findById(id);
     }
 
 
@@ -53,10 +58,12 @@ public class UserController {
     @PutMapping(value = "update/{id}")
 
     public String update(@PathVariable String id, @RequestBody User user) {
-        User u = users.get(id);
-        u.setName(user.getName());
-        u.setAge(user.getAge());
-        users.put(id, u);
+//        User u = users.get(id);
+//        u.setName(user.getName());
+//        u.setAge(user.getAge());
+//        users.put(id, u);
+        user.setId(id);
+        userMapper.update(user);
         return "success";
     }
 
@@ -64,8 +71,10 @@ public class UserController {
     @ApiImplicitParam(name = "id", value = "用户ID", required = true, dataType = "String",paramType = "path")
     @DeleteMapping(value = "delete/{id}")
     public String deleteUser(@PathVariable String id) {
-        users.remove(id);
+//        users.remove(id);
+        userMapper.removeById(id);
         return "success";
+
     }
 
 

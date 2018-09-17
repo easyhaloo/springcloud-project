@@ -30,21 +30,21 @@ import org.springframework.stereotype.Component;
     @Autowired
     private RedisProperties redisProperties;
 
-    /**
-     * Spring Data Redis 1.7 支持redis集群
-     * jedis集群配置
-     *
-     * @return
-     */
-    @Bean
-    @Primary
-    public RedisConnectionFactory connectionFactory() {
-
-        RedisConnectionFactory redisConnectionFactory = new JedisConnectionFactory(
-                new RedisClusterConfiguration(redisProperties.getCluster().getNodes()));
-
-        return redisConnectionFactory;
-    }
+//    /**
+//     * Spring Data Redis 1.7 支持redis集群
+//     * jedis集群配置
+//     *
+//     * @return
+//     */
+//    @Bean
+//    @Primary
+//    public RedisConnectionFactory connectionFactory() {
+//
+//        RedisConnectionFactory redisConnectionFactory = new JedisConnectionFactory(
+//                new RedisClusterConfiguration(redisProperties.getCluster().getNodes()));
+//
+//        return redisConnectionFactory;
+//    }
 
 
 

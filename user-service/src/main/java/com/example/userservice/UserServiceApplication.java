@@ -17,10 +17,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 @SpringBootApplication
 public class UserServiceApplication {
 
-    @Autowired
-    static RedisTemplate<String, User> redisTemplate;
+//    @Autowired
+//    static RedisTemplate<String, User> redisTemplate;
     public static void main(String[] args) {
         SpringApplication.run(UserServiceApplication.class, args);
-        System.out.println( redisTemplate.opsForValue().get("xiaoming"));
+//        System.out.println( redisTemplate.opsForValue().get("xiaoming"));
     }
 }

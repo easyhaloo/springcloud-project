@@ -1,6 +1,5 @@
 package com.example.userservice.config.monggo;
 
-import com.google.common.collect.Collections2;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;

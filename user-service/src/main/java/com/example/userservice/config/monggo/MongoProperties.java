@@ -17,7 +17,7 @@ import java.util.List;
 @Component
 @Validated
 //@Data
-@ConfigurationProperties(prefix = "spring.data.mongodb.custom")
+//@ConfigurationProperties(prefix = "spring.data.mongodb.custom")
 public class MongoProperties {
 
 
@@ -38,39 +38,41 @@ public class MongoProperties {
      * 连接的端口号集合
      */
     @NotEmpty
-    @Value("${ports}")
+    @Value("${spring.data.mongodb.custom.ports}")
     private List<Integer> ports;
 
 
-    /**
-     * 集群副本所需要的名称
-     */
-    @Value("${replicaSet}")
-    private String replicaSet;
+
     /**
      * mongo 连接mongo所需要使用的账号
      */
-    @Value("${username}")
+    @Value("${spring.data.mongodb.custom.username}")
     private String username;
     /**
      * mongo 连接mongo所需要使用密码
      */
-    @Value("${password}")
+    @Value("${spring.data.mongodb.custom.password}")
     private String password;
+
+    /**
+     * 集群副本所需要的名称
+     */
+    @Value("${spring.data.mongodb.custom.replicaSet}")
+    private String replicaSet;
     /**
      * 需要认证连接的数据库
      */
-    @Value("${authenticationDatabase}")
+    @Value("${spring.data.mongodb.custom.authenticationDatabase}")
     private String authenticationDatabase;
     /**
      *  每个主机支持的最小连接数
      */
-    @Value("${minConnectionsPerHost}")
+    @Value("${spring.data.mongodb.custom.minConnectionsPerHost}")
     private Integer minConnectionsPerHost = 2;
     /**
      * 每个主机支持的最大连接数
      */
-    @Value("${connectionsPerHost}")
+    @Value("${spring.data.mongodb.custom.connectionsPerHost}")
     private Integer connectionsPerHost = 10;
 
     public String getDatabase() {

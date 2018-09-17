@@ -1,15 +1,15 @@
-server:
-  port: 8885
-spring:
-  profiles:
-    active: dev
-  application:
-    name: user-service
-  #redis集群配置
-  redis:
-    cluster:
-      #多节点
-      nodes:
+#---
+#server:
+#  port: 8885
+#spring:
+#  profiles: dev
+#  application:
+#    name: user-service
+#  #redis集群配置
+#  redis:
+#    cluster:
+#      #多节点
+#      nodes:
 #        - 192.168.2.222:7000
 #        - 192.168.2.222:7001
 #        - 192.168.2.222:7002
@@ -27,20 +27,31 @@ spring:
 #      max-idle: 8
 #      # 连接池中的最小空闲连接
 #      min-idle: 0
-    # 连接超时时间（毫秒）
+#     连接超时时间（毫秒）
 #    timeout: 5000
+#
+#  data:
+#    mongodb:
+#      custom:
+#        hosts: localhost
+#        ports: 27017
+#        database: test
+#        authentication-database: local
+#        replica-set: mgset-3590061
+#        connections-per-host: 20
+#        min-connections-per-host: 10
+#
+#eureka:
+#  instance:
+#    status-page-url: http://localhost:${server.port}/swagger-ui.html
+#  client:
+#    service-url:
+#      defaultZone: http://register-master:8880/eureka/
+#
+#feign:
+#  hystrix:
+#    enabled: true
 
-
-eureka:
-  instance:
-    status-page-url: http://localhost:${server.port}/swagger-ui.html
-  client:
-    service-url:
-      defaultZone: http://register-master:8880/eureka/
-
-feign:
-  hystrix:
-    enabled: true
 
 
 
